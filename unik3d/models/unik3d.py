@@ -7,7 +7,7 @@ import importlib
 import warnings
 from copy import deepcopy
 from math import ceil
-
+import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -101,7 +101,7 @@ class UniK3D(
 ):
     def __init__(
         self,
-        config,
+        config='configs/eval/vitl.json',
         eps: float = 1e-6,
         **kwargs,
     ):
@@ -109,6 +109,10 @@ class UniK3D(
         self.eps = eps
         self.build(config)
         self.build_losses(config)
+        # with open(config, "r") as f:
+        #     config_dict = json.load(f)
+        # self.build(config_dict)
+        # self.build_losses(config_dict)
 
     def pack_sequence(
         self,
@@ -340,8 +344,8 @@ class UniK3D(
         if camera is not None:
             inputs["camera"] = camera
             rays = camera.get_rays(shapes=(B, new_H, new_W), noisy=False).reshape(
-                B, 3, new_H, new_W
-            )
+                1, 3, new_H, new_W
+            ).repeat(B, 1, 1, 1)
             inputs["rays"] = rays
 
         if rays is not None:

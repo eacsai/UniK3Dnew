@@ -5,6 +5,8 @@ Licensed under the CC-BY NC 4.0 license (http://creativecommons.org/licenses/by-
 
 import gc
 import os
+os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 import shutil
 import sys
 import time
