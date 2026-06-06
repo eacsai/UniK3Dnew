@@ -31,15 +31,71 @@ def onlyDepth(depth, save_name):
     depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
     depth = depth.cpu().detach().numpy()
     depth = depth.astype(np.uint8)
-    
+
     c_depth = (cmap(depth)[:, :, :3] * 255)[:, :, ::-1].astype(np.uint8)
     cv2.imwrite(save_name, c_depth)
+
+def tensor_to_cv2_image(tensor):
+    """Convert PyTorch tensor to OpenCV image format"""
+    # Denormalize if the tensor is normalized
+    if tensor.max() <= 1.0:
+        tensor = tensor * 255.0
+
+    # Convert to CPU and numpy
+    img = tensor.cpu().detach().numpy()
+
+    # Handle different tensor shapes
+    if img.ndim == 3:
+        if img.shape[0] == 3:  # CHW format
+            img = img.transpose(1, 2, 0)  # Convert to HWC
+        elif img.shape[2] == 3:  # Already HWC
+            pass
+        else:
+            raise ValueError(f"Unexpected tensor shape: {img.shape}")
+    elif img.ndim == 2:  # Grayscale
+        img = np.stack([img] * 3, axis=2)
+
+    # Ensure values are in valid range
+    img = np.clip(img, 0, 255).astype(np.uint8)
+
+    # Convert RGB to BGR for OpenCV
+    if img.shape[2] == 3:
+        img = img[:, :, ::-1]
+
+    return img
+
+def showDepth(depth_tensor, rgb_image):
+    """Visualize depth map alongside the original RGB image"""
+    # Create depth visualization
+    cmap = cm.get_cmap('Spectral')
+    depth_norm = (depth_tensor - depth_tensor.min()) / (depth_tensor.max() - depth_tensor.min() + 1e-8)
+    depth_vis = cmap(depth_norm.cpu().detach().numpy())[:, :, :3] * 255
+    depth_vis = depth_vis.astype(np.uint8)
+
+    # Convert depth to BGR for OpenCV
+    depth_bgr = depth_vis[:, :, ::-1]
+
+    # Ensure RGB image is in BGR format for OpenCV
+    if len(rgb_image.shape) == 3 and rgb_image.shape[2] == 3:
+        rgb_bgr = rgb_image
+    else:
+        rgb_bgr = tensor_to_cv2_image(torch.from_numpy(rgb_image))
+
+    # Resize depth to match RGB image if needed
+    if depth_bgr.shape[:2] != rgb_bgr.shape[:2]:
+        depth_bgr = cv2.resize(depth_bgr, (rgb_bgr.shape[1], rgb_bgr.shape[0]))
+
+    # Concatenate images side by side
+    combined = np.hstack([rgb_bgr, depth_bgr])
+
+    # Save visualization
+    cv2.imwrite('depth_visualization.png', combined)
+    print("Depth visualization saved as 'depth_visualization.png'")
 
 class Model360Loc(nn.Module):
     def __init__(self, args, device):  # device='cuda:0',
         super(Model360Loc, self).__init__()
         self.device = device
-        self.args = args
         self.global_step = 0
         local_model_path = "/home/qiwei/.cache/torch/hub/unik3d-vitl"
         self.model = UniK3D.from_pretrained(local_model_path)   
@@ -74,7 +130,11 @@ class Model360Loc(nn.Module):
             mask = mask.unsqueeze(1).float()  # (B, 1, H, W) 
             depth = torch.clamp(depth, min=0)  # 将深度值限制在非负范围内
             depth = depth * mask.to(depth.device)  # (C, H, W)
-            depth[depth > 80] = 0.0
+            # depth[depth > 200] = 0.0
+
+            # Visualize the first sample in the batch
+            # if len(depth) > 0:
+            #     showDepth(depth[0, 0], tensor_to_cv2_image(grd[0]))
 
             # s_metric, d_metric_Pano = compute_scaling_factor(metric_depth, depth1)
 
@@ -83,13 +143,11 @@ class Model360Loc(nn.Module):
             for b in range(len(grd_path)):
                 parent_path = str(grd_path[b]).split('/')
                 depth_path = '/'.join(parent_path[:-2])
-                depth_path = os.path.join(depth_path, 'depth_metric')
+                depth_path = os.path.join(depth_path, 'depth_metric_2')
                 if not os.path.isdir(depth_path):
                     os.makedirs(depth_path, exist_ok=True)
                 # onlyDepth(depth[b, 0], 'grd_depth.png')
                 d_metric_Pano_np = depth[b].cpu().numpy()
                 d_conf_Pano_np = conf[b].cpu().numpy()
-                np.save(os.path.join(depth_path, parent_path[-1].replace('.jpg', '_depth.npy')), d_metric_Pano_np)
-                np.save(os.path.join(depth_path, parent_path[-1].replace('.jpg', '_conf.npy')), d_conf_Pano_np)
-            # i = 2
-            # showDepth(depth[0, i], tensor_to_cv2_image(pers_imgs[0, i]))
+                np.save(os.path.join(depth_path, parent_path[-1].replace('.png', '_depth.npy')), d_metric_Pano_np)
+                np.save(os.path.join(depth_path, parent_path[-1].replace('.png', '_conf.npy')), d_conf_Pano_np)

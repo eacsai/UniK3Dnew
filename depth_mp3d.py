@@ -19,7 +19,7 @@ def train(net, args, device):
     for epoch in range(args.resume, args.epochs):
         net.train()
 
-        trainloader = load_MP3D_data(args.batch_size, stage='train')
+        trainloader = load_MP3D_data(args.batch_size, stage='val')
 
         print('batch_size:', args.batch_size, '\n num of batches:', len(trainloader))
 

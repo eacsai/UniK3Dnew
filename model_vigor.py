@@ -1,3 +1,4 @@
+import os
 import torch.nn as nn
 import torch
 from torchvision import transforms
@@ -61,6 +62,7 @@ class ModelVigor(nn.Module):
 
     def create_data(self, grd_path, save_path):
         # grd = F.interpolate(grd, (80, 160), mode='bilinear', align_corners=False)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         rgbs = []
         for b in range(len(grd_path)):
             img_pil = Image.open(grd_path[b])
@@ -87,7 +89,7 @@ class ModelVigor(nn.Module):
             mask = mask.unsqueeze(1).float()  # (B, 1, H, W) 
             depth = torch.clamp(depth, min=0)  # 将深度值限制在非负范围内
             depth = depth * mask.to(depth.device)  # (B, 1, H, W)
-            depth[depth > 80] = 0.0
+            # depth[depth > 80] = 0.0
 
             # s_metric, d_metric_Pano = compute_scaling_factor(metric_depth, depth1)
 

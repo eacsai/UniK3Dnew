@@ -47,9 +47,9 @@ def parse_args():
 
     parser.add_argument('--rotation_range', type=float, default=0., help='degree')
 
-    parser.add_argument('--batch_size', type=int, default=12, help='batch size')
+    parser.add_argument('--batch_size', type=int, default=4, help='batch size')
 
-    parser.add_argument('--area', type=str, default='cross', help='same or cross')
+    parser.add_argument('--area', type=str, default='same', help='same or cross')
 
     args = parser.parse_args()
 
