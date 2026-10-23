@@ -280,3 +280,35 @@ This software is released under Creatives Common BY-NC 4.0 license. You can view
 ## Acknowledgement
 
 This work is funded by Toyota Motor Europe via the research project [TRACE-Zurich](https://trace.ethz.ch) (Toyota Research on Automated Cars Europe).
+
+## BevSplat VIGOR depth preprocessing
+
+`ModelVigor.create_data(grd_paths, save_paths)` accepts matching lists or tuples of
+input panorama paths and output NPY paths. It creates each output parent directory
+individually, including when outputs use different directories or bare filenames.
+The wrapper uses the device passed to `ModelVigor(args, device)`.
+
+The historical VIGOR postprocessing is preserved: distances are clamped below at
+zero, pixels whose resized uint8 RGB channel sum is less than 16 are zeroed, and
+`depth[depth > 80] = 0.0` removes distances above 80 metres. Exactly 80 metres is
+retained; values above 80 are set to zero rather than clipped to 80. Saved arrays
+have shape `(1, 320, 640)`.
+
+Use sky-masked panoramas as inputs (see the
+[sky-mask preparation instructions](https://github.com/eacsai/Depth-Anything-V2#bevsplat-vigor-sky-masking)).
+The RGB rule is not a separate semantic sky mask: JPEG compression and image
+resizing can leave nonzero depth near sky-mask boundaries. No PNG hard mask is
+applied here. CPU/GPU, batching and historical camera state can also affect exact
+numerical agreement with previously generated depth files.
+
+Focused checks, without downloading weights:
+
+```bash
+CUDA_VISIBLE_DEVICES= HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  python -m unittest discover -s tests -p test_model_vigor.py -v
+```
+
+The real-model CPU test is opt-in and requires existing local weights and explicit
+fixture/output paths. This wrapper check does not certify a complete dataset run.
+The existing `depth_vigor.py` CLI still has machine-specific dataset paths and a
+hardcoded visible CUDA device; configure those for your machine before using it.

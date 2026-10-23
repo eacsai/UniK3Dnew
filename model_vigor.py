@@ -50,7 +50,7 @@ class ModelVigor(nn.Module):
         # self.metric_model = torch.hub.load("/home/qiwei/.cache/torch/hub/yvanyin_metric3d_main", "metric3d_vit_large", source='local')
         # self.metric_model = torch.hub.load('yvanyin/metric3d', 'metric3d_vit_large', pretrain=True)
         self.model.eval()
-        self.model.to("cuda")
+        self.model.to(self.device)
         self.model.resolution_level = 9
         # Load the camera
         H = 512
@@ -62,7 +62,14 @@ class ModelVigor(nn.Module):
 
     def create_data(self, grd_path, save_path):
         # grd = F.interpolate(grd, (80, 160), mode='bilinear', align_corners=False)
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        for name, paths in (("grd_path", grd_path), ("save_path", save_path)):
+            if isinstance(paths, (str, bytes, os.PathLike)):
+                raise TypeError(f"{name} must be a batch of paths, not a scalar path")
+        if len(grd_path) != len(save_path):
+            raise ValueError("grd_path and save_path must have matching batch lengths")
+        save_path = [os.fspath(path) for path in save_path]
+        for path in save_path:
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         rgbs = []
         for b in range(len(grd_path)):
             img_pil = Image.open(grd_path[b])
@@ -89,7 +96,7 @@ class ModelVigor(nn.Module):
             mask = mask.unsqueeze(1).float()  # (B, 1, H, W) 
             depth = torch.clamp(depth, min=0)  # 将深度值限制在非负范围内
             depth = depth * mask.to(depth.device)  # (B, 1, H, W)
-            # depth[depth > 80] = 0.0
+            depth[depth > 80] = 0.0
 
             # s_metric, d_metric_Pano = compute_scaling_factor(metric_depth, depth1)
 
